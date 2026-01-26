@@ -43,7 +43,13 @@ public class DataProviderSelector
         }
 
         await SelectProviderAsync();
-        return _activeProvider!;
+        
+        if (_activeProvider == null)
+        {
+            throw new InvalidOperationException("No data provider available, including FileSystem fallback.");
+        }
+        
+        return _activeProvider;
     }
 
     /// <summary>
