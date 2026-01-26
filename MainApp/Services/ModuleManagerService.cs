@@ -256,14 +256,15 @@ public class ModuleManagerService
 
     private static string? FindModulePath(string moduleName)
     {
-        // Look for module.dll in common build locations
+        // Look for {moduleName}.dll in common build locations
         var basePath = Directory.GetCurrentDirectory();
+        var targetFramework = "net10.0";
         var possiblePaths = new[]
         {
-            Path.Combine(basePath, "..", moduleName, "bin", "Debug", "net10.0", $"{moduleName}.dll"),
-            Path.Combine(basePath, "..", moduleName, "bin", "Release", "net10.0", $"{moduleName}.dll"),
-            Path.Combine(basePath, moduleName, "bin", "Debug", "net10.0", $"{moduleName}.dll"),
-            Path.Combine(basePath, moduleName, "bin", "Release", "net10.0", $"{moduleName}.dll")
+            Path.Combine(basePath, "..", moduleName, "bin", "Debug", targetFramework, $"{moduleName}.dll"),
+            Path.Combine(basePath, "..", moduleName, "bin", "Release", targetFramework, $"{moduleName}.dll"),
+            Path.Combine(basePath, moduleName, "bin", "Debug", targetFramework, $"{moduleName}.dll"),
+            Path.Combine(basePath, moduleName, "bin", "Release", targetFramework, $"{moduleName}.dll")
         };
 
         foreach (var path in possiblePaths)
