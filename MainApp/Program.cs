@@ -12,6 +12,10 @@ builder.Services.AddSingleton<ModuleManagerService>();
 
 var app = builder.Build();
 
+// Serve static files from wwwroot
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 // Configure the HTTP request pipeline - Enable OpenAPI and Scalar UI
 app.MapOpenApi();
 app.MapScalarApiReference();
