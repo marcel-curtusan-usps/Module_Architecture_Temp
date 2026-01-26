@@ -151,12 +151,12 @@ function initializeFetchDemo(container) {
             } else {
                 let html = '<div class="list-group">';
                 modules.forEach(module => {
-                    const statusClass = module.isRunning ? 'bg-success' : 'bg-secondary';
+                    const statusClass = module.status === 'Running' ? 'bg-success' : 'bg-secondary';
                     html += `
                         <div class="list-group-item">
                             <div class="d-flex justify-content-between align-items-center">
                                 <strong>${module.name}</strong>
-                                <span class="badge ${statusClass}">${module.isRunning ? 'Running' : 'Stopped'}</span>
+                                <span class="badge ${statusClass}">${module.status}</span>
                             </div>
                             <small class="text-muted">Port: ${module.port} | PID: ${module.processId || 'N/A'}</small>
                         </div>

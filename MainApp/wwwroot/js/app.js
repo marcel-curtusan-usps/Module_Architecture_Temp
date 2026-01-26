@@ -34,7 +34,7 @@
                         <div class="card-body">
                             <h5 class="card-title">⚡ Real-time Updates</h5>
                             <p class="card-text">Manage modules with real-time status and health monitoring.</p>
-                            <button class="btn btn-primary" onclick="alert('Feature coming soon!')">Learn More</button>
+                            <button class="btn btn-primary" id="learnMoreBtn">Learn More</button>
                         </div>
                     </div>
                 </div>
@@ -51,6 +51,14 @@
                 </div>
             </div>
         `;
+        
+        // Add event listener for Learn More button
+        const learnMoreBtn = contentContainer.querySelector('#learnMoreBtn');
+        if (learnMoreBtn) {
+            learnMoreBtn.addEventListener('click', () => {
+                alert('Feature coming soon!');
+            });
+        }
     }
 
     /**
@@ -141,7 +149,14 @@
             router.navigate(path);
         },
         reloadModule: function() {
-            window.location.reload();
+            // Get current path and reload if it's a module
+            const currentPath = location.pathname;
+            const moduleMatch = currentPath.match(/^\/modules\/(.+)$/);
+            if (moduleMatch) {
+                loadModule(moduleMatch[1]);
+            } else {
+                window.location.reload();
+            }
         }
     };
 })();
