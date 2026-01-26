@@ -1,0 +1,246 @@
+using System.Diagnostics;
+using MainApp.Models;
+
+namespace MainApp.Services;
+
+public class ModuleManagerService
+{
+    private readonly List<ModuleProcess> _modules = new();
+    private readonly HttpClient _httpClient = new();
+    private int _nextPort = 5000;
+    private readonly ILogger<ModuleManagerService> _logger;
+
+    public ModuleManagerService(ILogger<ModuleManagerService> logger)
+    {
+        _logger = logger;
+    }
+
+    public IReadOnlyList<ModuleProcess> GetAllModules()
+    {
+        return _modules.AsReadOnly();
+    }
+
+    public ModuleProcess? GetModuleByName(string name)
+    {
+        return _modules.FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public async Task<ModuleProcess> StartModuleAsync(string name)
+    {
+        if (GetModuleByName(name) != null)
+        {
+            throw new InvalidOperationException($"Module '{name}' is already running.");
+        }
+
+        var port = _nextPort++;
+        var moduleApiPath = FindModuleApiPath();
+        
+        if (moduleApiPath == null)
+        {
+            throw new FileNotFoundException("Could not find ModuleApi. Please build the solution first.");
+        }
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"{moduleApiPath} --name {name} --port {port}",
+            UseShellExecute = false,
+            CreateNoWindow = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+
+        var process = Process.Start(startInfo);
+        if (process == null)
+        {
+            throw new InvalidOperationException("Failed to start module process.");
+        }
+
+        var module = new ModuleProcess
+        {
+            Name = name,
+            Port = port,
+            Process = process,
+            StartTime = DateTime.Now
+        };
+        
+        _modules.Add(module);
+        
+        // Give it time to start
+        await Task.Delay(1000);
+        
+        _logger.LogInformation("Module '{Name}' started on port {Port} (PID: {ProcessId})", name, port, process.Id);
+        
+        return module;
+    }
+
+    public async Task<bool> StopModuleAsync(string name)
+    {
+        var module = GetModuleByName(name);
+        if (module == null)
+        {
+            return false;
+        }
+
+        try
+        {
+            var response = await _httpClient.PostAsync($"http://localhost:{module.Port}/stop", null);
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Stop request sent to module '{Name}'. Waiting for graceful shutdown...", name);
+                
+                if (!module.Process.WaitForExit(5000))
+                {
+                    _logger.LogWarning("Module '{Name}' did not stop in time. Force killing...", name);
+                    module.Process.Kill();
+                }
+                
+                _modules.Remove(module);
+                _logger.LogInformation("Module '{Name}' stopped.", name);
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error stopping module '{Name}'. Attempting force kill...", name);
+            if (!module.Process.HasExited)
+            {
+                module.Process.Kill();
+                _modules.Remove(module);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public async Task<bool> RestartModuleAsync(string name)
+    {
+        var module = GetModuleByName(name);
+        if (module == null)
+        {
+            return false;
+        }
+
+        var port = module.Port;
+
+        _logger.LogInformation("Restarting module '{Name}'...", name);
+        
+        // Stop the module
+        try
+        {
+            await _httpClient.PostAsync($"http://localhost:{port}/stop", null);
+            module.Process.WaitForExit(3000);
+        }
+        catch { }
+
+        if (!module.Process.HasExited)
+        {
+            module.Process.Kill();
+        }
+        _modules.Remove(module);
+
+        // Start it again
+        await Task.Delay(500);
+        
+        var moduleApiPath = FindModuleApiPath();
+        if (moduleApiPath == null)
+        {
+            throw new FileNotFoundException("Could not find ModuleApi.");
+        }
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"{moduleApiPath} --name {name} --port {port}",
+            UseShellExecute = false,
+            CreateNoWindow = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+
+        var process = Process.Start(startInfo);
+        if (process != null)
+        {
+            var newModule = new ModuleProcess
+            {
+                Name = name,
+                Port = port,
+                Process = process,
+                StartTime = DateTime.Now
+            };
+            _modules.Add(newModule);
+            
+            await Task.Delay(1000);
+            _logger.LogInformation("Module '{Name}' restarted on port {Port}", name, port);
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool KillModule(string name)
+    {
+        var module = GetModuleByName(name);
+        if (module == null)
+        {
+            return false;
+        }
+
+        if (!module.Process.HasExited)
+        {
+            module.Process.Kill();
+            _logger.LogInformation("Module '{Name}' force killed.", name);
+        }
+        else
+        {
+            _logger.LogInformation("Module '{Name}' is already stopped.", name);
+        }
+        
+        _modules.Remove(module);
+        return true;
+    }
+
+    public async Task StopAllModulesAsync()
+    {
+        _logger.LogInformation("Stopping all modules...");
+        foreach (var module in _modules.ToList())
+        {
+            try
+            {
+                await _httpClient.PostAsync($"http://localhost:{module.Port}/stop", null);
+                module.Process.WaitForExit(2000);
+            }
+            catch { }
+
+            if (!module.Process.HasExited)
+            {
+                module.Process.Kill();
+            }
+        }
+        _modules.Clear();
+        _logger.LogInformation("All modules stopped.");
+    }
+
+    private static string? FindModuleApiPath()
+    {
+        // Look for ModuleApi.dll in common build locations
+        var basePath = Directory.GetCurrentDirectory();
+        var possiblePaths = new[]
+        {
+            Path.Combine(basePath, "..", "ModuleApi", "bin", "Debug", "net10.0", "ModuleApi.dll"),
+            Path.Combine(basePath, "..", "ModuleApi", "bin", "Release", "net10.0", "ModuleApi.dll"),
+            Path.Combine(basePath, "ModuleApi", "bin", "Debug", "net10.0", "ModuleApi.dll"),
+            Path.Combine(basePath, "ModuleApi", "bin", "Release", "net10.0", "ModuleApi.dll")
+        };
+
+        foreach (var path in possiblePaths)
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (File.Exists(fullPath))
+                return fullPath;
+        }
+
+        return null;
+    }
+}
