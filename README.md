@@ -36,6 +36,17 @@ A minimal ASP.NET Core Web API that provides:
 - Graceful shutdown endpoint (`/stop`)
 - Command-line argument support for port and name configuration
 
+### DataStore (ASP.NET Core Web API)
+A generic data storage API with multi-provider support and automatic fallback. Features include:
+- **Generic CRUD endpoints** via `/api/data/{containerName}/[id]`
+- **Multi-provider architecture** supporting MongoDB, CosmosDB, RavenDB, Oracle, and FileSystem
+- **Automatic provider selection** with fallback priority (MongoDB → CosmosDB → RavenDB → Oracle → FileSystem)
+- **Interactive OpenAPI documentation** with Scalar UI
+- **FileSystem provider** fully implemented as working example and reliable fallback
+- **Container-based storage** for organizing data into logical groups
+
+See [DataStore/README.md](DataStore/README.md) for detailed documentation.
+
 ## Building the Solution
 
 ```bash
