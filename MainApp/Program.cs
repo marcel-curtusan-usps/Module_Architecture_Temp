@@ -68,9 +68,9 @@ if (moduleConfig?.StartupModules != null && moduleConfig.StartupModules.Count > 
 
 // Graceful shutdown - stop all modules when the application stops
 var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
-lifetime.ApplicationStopping.Register(async () =>
+lifetime.ApplicationStopping.Register(() =>
 {
-    await moduleManager.StopAllModulesAsync();
+    moduleManager.StopAllModulesAsync().GetAwaiter().GetResult();
 });
 
 app.Run();
