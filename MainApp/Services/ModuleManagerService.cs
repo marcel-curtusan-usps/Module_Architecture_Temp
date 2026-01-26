@@ -33,17 +33,17 @@ public class ModuleManagerService
         }
 
         var port = _nextPort++;
-        var moduleApiPath = FindModuleApiPath();
+        var modulePath = FindModulePath(name);
         
-        if (moduleApiPath == null)
+        if (modulePath == null)
         {
-            throw new FileNotFoundException("Could not find ModuleApi. Please build the solution first.");
+            throw new FileNotFoundException($"Could not find module '{name}'. Please build the solution first.");
         }
 
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{moduleApiPath} --name {name} --port {port}",
+            Arguments = $"{modulePath} --name {name} --port {port}",
             UseShellExecute = false,
             CreateNoWindow = false,
             RedirectStandardOutput = true,
@@ -167,16 +167,16 @@ public class ModuleManagerService
         // Start it again
         await Task.Delay(500);
         
-        var moduleApiPath = FindModuleApiPath();
-        if (moduleApiPath == null)
+        var modulePath = FindModulePath(name);
+        if (modulePath == null)
         {
-            throw new FileNotFoundException("Could not find ModuleApi.");
+            throw new FileNotFoundException($"Could not find module '{name}'.");
         }
 
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{moduleApiPath} --name {name} --port {port}",
+            Arguments = $"{modulePath} --name {name} --port {port}",
             UseShellExecute = false,
             CreateNoWindow = false,
             RedirectStandardOutput = true,
@@ -254,16 +254,16 @@ public class ModuleManagerService
         _logger.LogInformation("All modules stopped.");
     }
 
-    private static string? FindModuleApiPath()
+    private static string? FindModulePath(string moduleName)
     {
-        // Look for ModuleApi.dll in common build locations
+        // Look for module.dll in common build locations
         var basePath = Directory.GetCurrentDirectory();
         var possiblePaths = new[]
         {
-            Path.Combine(basePath, "..", "ModuleApi", "bin", "Debug", "net10.0", "ModuleApi.dll"),
-            Path.Combine(basePath, "..", "ModuleApi", "bin", "Release", "net10.0", "ModuleApi.dll"),
-            Path.Combine(basePath, "ModuleApi", "bin", "Debug", "net10.0", "ModuleApi.dll"),
-            Path.Combine(basePath, "ModuleApi", "bin", "Release", "net10.0", "ModuleApi.dll")
+            Path.Combine(basePath, "..", moduleName, "bin", "Debug", "net10.0", $"{moduleName}.dll"),
+            Path.Combine(basePath, "..", moduleName, "bin", "Release", "net10.0", $"{moduleName}.dll"),
+            Path.Combine(basePath, moduleName, "bin", "Debug", "net10.0", $"{moduleName}.dll"),
+            Path.Combine(basePath, moduleName, "bin", "Release", "net10.0", $"{moduleName}.dll")
         };
 
         foreach (var path in possiblePaths)
