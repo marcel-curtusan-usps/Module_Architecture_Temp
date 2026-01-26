@@ -40,6 +40,23 @@ public class ModuleManagerService
             throw new FileNotFoundException($"Could not find module '{name}'. Please build the solution first.");
         }
 
+        return await StartModuleAsync(name, port, modulePath);
+    }
+
+    public async Task<ModuleProcess> StartModuleAsync(string name, int port, string? projectPath = null)
+    {
+        if (GetModuleByName(name) != null)
+        {
+            throw new InvalidOperationException($"Module '{name}' is already running.");
+        }
+
+        var modulePath = projectPath ?? FindModulePath(name);
+        
+        if (modulePath == null)
+        {
+            throw new FileNotFoundException($"Could not find module '{name}'. Please build the solution first.");
+        }
+
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
