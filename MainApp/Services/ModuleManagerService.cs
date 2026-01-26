@@ -9,6 +9,7 @@ public class ModuleManagerService
     private readonly HttpClient _httpClient = new();
     private int _nextPort = 5000;
     private readonly ILogger<ModuleManagerService> _logger;
+    private const int PortReleaseDelayMs = 500;
 
     public ModuleManagerService(ILogger<ModuleManagerService> logger)
     {
@@ -25,11 +26,40 @@ public class ModuleManagerService
         return _modules.FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Terminates an existing module process if it's running.
+    /// </summary>
+    private async Task TerminateExistingModuleAsync(ModuleProcess existingModule)
+    {
+        _logger.LogInformation("Module '{Name}' is already running (PID: {ProcessId}). Killing existing process...", 
+            existingModule.Name, existingModule.Process.Id);
+        
+        if (!existingModule.Process.HasExited)
+        {
+            try
+            {
+                existingModule.Process.Kill();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to kill existing module '{Name}' process", existingModule.Name);
+            }
+        }
+        
+        _modules.Remove(existingModule);
+        _logger.LogInformation("Existing module '{Name}' removed from tracking.", existingModule.Name);
+        
+        // Small delay to ensure port is released
+        await Task.Delay(PortReleaseDelayMs);
+    }
+
     public async Task<ModuleProcess> StartModuleAsync(string name)
     {
-        if (GetModuleByName(name) != null)
+        // Check if a module with this name is already running
+        var existingModule = GetModuleByName(name);
+        if (existingModule != null)
         {
-            throw new InvalidOperationException($"Module '{name}' is already running.");
+            await TerminateExistingModuleAsync(existingModule);
         }
 
         var port = _nextPort++;
@@ -45,9 +75,11 @@ public class ModuleManagerService
 
     public async Task<ModuleProcess> StartModuleAsync(string name, int port, string? projectPath = null)
     {
-        if (GetModuleByName(name) != null)
+        // Check if a module with this name is already running
+        var existingModule = GetModuleByName(name);
+        if (existingModule != null)
         {
-            throw new InvalidOperationException($"Module '{name}' is already running.");
+            await TerminateExistingModuleAsync(existingModule);
         }
 
         var modulePath = projectPath ?? FindModulePath(name);
