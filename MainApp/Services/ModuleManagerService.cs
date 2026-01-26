@@ -92,7 +92,17 @@ public class ModuleManagerService
                 if (!module.Process.WaitForExit(5000))
                 {
                     _logger.LogWarning("Module '{Name}' did not stop in time. Force killing...", name);
-                    module.Process.Kill();
+                    if (!module.Process.HasExited)
+                    {
+                        try
+                        {
+                            module.Process.Kill();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to kill module '{Name}'", name);
+                        }
+                    }
                 }
                 
                 _modules.Remove(module);
@@ -105,7 +115,14 @@ public class ModuleManagerService
             _logger.LogError(ex, "Error stopping module '{Name}'. Attempting force kill...", name);
             if (!module.Process.HasExited)
             {
-                module.Process.Kill();
+                try
+                {
+                    module.Process.Kill();
+                }
+                catch (Exception killEx)
+                {
+                    _logger.LogError(killEx, "Failed to kill module '{Name}'", name);
+                }
                 _modules.Remove(module);
                 return true;
             }
@@ -136,7 +153,14 @@ public class ModuleManagerService
 
         if (!module.Process.HasExited)
         {
-            module.Process.Kill();
+            try
+            {
+                module.Process.Kill();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to kill module '{Name}' during restart", name);
+            }
         }
         _modules.Remove(module);
 
@@ -189,8 +213,16 @@ public class ModuleManagerService
 
         if (!module.Process.HasExited)
         {
-            module.Process.Kill();
-            _logger.LogInformation("Module '{Name}' force killed.", name);
+            try
+            {
+                module.Process.Kill();
+                _logger.LogInformation("Module '{Name}' force killed.", name);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to kill module '{Name}'", name);
+                return false;
+            }
         }
         else
         {

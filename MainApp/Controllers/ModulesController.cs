@@ -25,14 +25,32 @@ public class ModulesController : ControllerBase
     public ActionResult<IEnumerable<ModuleDto>> GetModules()
     {
         var modules = _moduleManager.GetAllModules();
-        var moduleDtos = modules.Select(m => new ModuleDto(
-            m.Name,
-            m.Port,
-            m.Process.Id,
-            m.Status,
-            m.StartTime,
-            m.Uptime
-        ));
+        var moduleDtos = modules.Select(m => 
+        {
+            try
+            {
+                return new ModuleDto(
+                    m.Name,
+                    m.Port,
+                    m.Process.HasExited ? 0 : m.Process.Id,
+                    m.Status,
+                    m.StartTime,
+                    m.Uptime
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting process info for module '{Name}'", m.Name);
+                return new ModuleDto(
+                    m.Name,
+                    m.Port,
+                    0,
+                    "Error",
+                    m.StartTime,
+                    m.Uptime
+                );
+            }
+        });
         
         return Ok(moduleDtos);
     }
@@ -51,16 +69,25 @@ public class ModulesController : ControllerBase
             return NotFound(new { message = $"Module '{name}' not found." });
         }
 
-        var dto = new ModuleDto(
-            module.Name,
-            module.Port,
-            module.Process.Id,
-            module.Status,
-            module.StartTime,
-            module.Uptime
-        );
-        
-        return Ok(dto);
+        try
+        {
+            var dto = new ModuleDto(
+                module.Name,
+                module.Port,
+                module.Process.HasExited ? 0 : module.Process.Id,
+                module.Status,
+                module.StartTime,
+                module.Uptime
+            );
+            
+            return Ok(dto);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting process info for module '{Name}'", name);
+            return StatusCode(StatusCodes.Status500InternalServerError, 
+                new { message = "Error retrieving module information." });
+        }
     }
 
     /// <summary>
@@ -79,16 +106,26 @@ public class ModulesController : ControllerBase
         try
         {
             var module = await _moduleManager.StartModuleAsync(request.Name);
-            var dto = new ModuleDto(
-                module.Name,
-                module.Port,
-                module.Process.Id,
-                module.Status,
-                module.StartTime,
-                module.Uptime
-            );
             
-            return CreatedAtAction(nameof(GetModule), new { name = module.Name }, dto);
+            try
+            {
+                var dto = new ModuleDto(
+                    module.Name,
+                    module.Port,
+                    module.Process.HasExited ? 0 : module.Process.Id,
+                    module.Status,
+                    module.StartTime,
+                    module.Uptime
+                );
+                
+                return CreatedAtAction(nameof(GetModule), new { name = module.Name }, dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting process info for newly started module '{Name}'", request.Name);
+                return StatusCode(StatusCodes.Status500InternalServerError, 
+                    new { message = "Module started but unable to retrieve full information." });
+            }
         }
         catch (InvalidOperationException ex)
         {
