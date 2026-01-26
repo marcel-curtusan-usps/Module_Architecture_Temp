@@ -27,9 +27,32 @@ public class ModuleManagerService
 
     public async Task<ModuleProcess> StartModuleAsync(string name)
     {
-        if (GetModuleByName(name) != null)
+        // Check if a module with this name is already running
+        var existingModule = GetModuleByName(name);
+        if (existingModule != null)
         {
-            throw new InvalidOperationException($"Module '{name}' is already running.");
+            // Kill the existing process and remove it from tracking
+            _logger.LogInformation("Module '{Name}' is already running (PID: {ProcessId}). Killing existing process...", 
+                name, existingModule.Process.Id);
+            
+            if (!existingModule.Process.HasExited)
+            {
+                try
+                {
+                    existingModule.Process.Kill();
+                    existingModule.Process.WaitForExit(3000);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to kill existing module '{Name}' process", name);
+                }
+            }
+            
+            _modules.Remove(existingModule);
+            _logger.LogInformation("Existing module '{Name}' removed from tracking.", name);
+            
+            // Small delay to ensure port is released
+            await Task.Delay(500);
         }
 
         var port = _nextPort++;
@@ -45,9 +68,32 @@ public class ModuleManagerService
 
     public async Task<ModuleProcess> StartModuleAsync(string name, int port, string? projectPath = null)
     {
-        if (GetModuleByName(name) != null)
+        // Check if a module with this name is already running
+        var existingModule = GetModuleByName(name);
+        if (existingModule != null)
         {
-            throw new InvalidOperationException($"Module '{name}' is already running.");
+            // Kill the existing process and remove it from tracking
+            _logger.LogInformation("Module '{Name}' is already running (PID: {ProcessId}). Killing existing process...", 
+                name, existingModule.Process.Id);
+            
+            if (!existingModule.Process.HasExited)
+            {
+                try
+                {
+                    existingModule.Process.Kill();
+                    existingModule.Process.WaitForExit(3000);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to kill existing module '{Name}' process", name);
+                }
+            }
+            
+            _modules.Remove(existingModule);
+            _logger.LogInformation("Existing module '{Name}' removed from tracking.", name);
+            
+            // Small delay to ensure port is released
+            await Task.Delay(500);
         }
 
         var modulePath = projectPath ?? FindModulePath(name);
