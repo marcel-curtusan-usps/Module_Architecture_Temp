@@ -9,6 +9,7 @@ public class ModuleManagerService
     private readonly HttpClient _httpClient = new();
     private int _nextPort = 5000;
     private readonly ILogger<ModuleManagerService> _logger;
+    private const int PortReleaseDelayMs = 500;
 
     public ModuleManagerService(ILogger<ModuleManagerService> logger)
     {
@@ -49,7 +50,7 @@ public class ModuleManagerService
         _logger.LogInformation("Existing module '{Name}' removed from tracking.", existingModule.Name);
         
         // Small delay to ensure port is released
-        await Task.Delay(500);
+        await Task.Delay(PortReleaseDelayMs);
     }
 
     public async Task<ModuleProcess> StartModuleAsync(string name)
