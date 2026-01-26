@@ -1,6 +1,45 @@
-@ModuleApi_HostAddress = http://localhost:5036
+@ModuleApi_HostAddress = http://localhost:5000
 
-GET {{ModuleApi_HostAddress}}/weatherforecast/
+### Health Check
+GET {{ModuleApi_HostAddress}}/health
 Accept: application/json
+
+###
+
+### Get All Items
+GET {{ModuleApi_HostAddress}}/items
+Accept: application/json
+
+###
+
+### Create Item
+POST {{ModuleApi_HostAddress}}/items
+Content-Type: application/json
+
+{
+  "name": "Sample Item",
+  "description": "This is a sample item"
+}
+
+###
+
+### Update Item
+PUT {{ModuleApi_HostAddress}}/items/1
+Content-Type: application/json
+
+{
+  "name": "Updated Item",
+  "description": "This item has been updated"
+}
+
+###
+
+### Delete Item
+DELETE {{ModuleApi_HostAddress}}/items/1
+
+###
+
+### Graceful Shutdown
+POST {{ModuleApi_HostAddress}}/stop
 
 ###
