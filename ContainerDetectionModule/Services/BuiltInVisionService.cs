@@ -4,7 +4,7 @@ using System.Diagnostics;
 namespace ContainerDetectionModule.Services;
 
 /// <summary>
-/// Service for analyzing images using .NET 10 built-in Computer Vision APIs.
+/// Service for analyzing images using Computer Vision libraries compatible with .NET.
 /// This is a stub implementation with pseudocode and placeholder logic.
 /// </summary>
 public class BuiltInVisionService
@@ -17,9 +17,9 @@ public class BuiltInVisionService
     }
 
     /// <summary>
-    /// Analyzes an image using .NET 10 built-in Computer Vision capabilities.
-    /// TODO: Implement actual integration with .NET Computer Vision APIs.
-    /// TODO: Install required NuGet packages (e.g., Microsoft.ML.OnnxRuntime, System.Drawing, etc.).
+    /// Analyzes an image using Computer Vision libraries compatible with .NET.
+    /// TODO: Implement actual integration with Computer Vision libraries (e.g., ML.NET, Azure Computer Vision SDK, ONNX Runtime).
+    /// TODO: Install required NuGet packages (e.g., Microsoft.ML.OnnxRuntime, Azure.AI.Vision.ImageAnalysis, System.Drawing).
     /// TODO: Configure vision API settings (API keys if cloud-based, model paths if local).
     /// TODO: Handle different image formats and sizes.
     /// TODO: Implement error handling for API failures and rate limiting.
@@ -50,16 +50,11 @@ public class BuiltInVisionService
             // var imageBytes = Convert.FromBase64String(imageRequest.Base64Image);
             // using var imageStream = new MemoryStream(imageBytes);
 
-            // TODO: Call .NET Computer Vision API
+            // TODO: Call Computer Vision API (Azure Computer Vision, ML.NET, or ONNX model)
             // PSEUDOCODE:
-            // using var visionClient = new ComputerVisionClient(credentials);
-            // var features = new List<VisualFeatureTypes> 
-            // { 
-            //     VisualFeatureTypes.Objects, 
-            //     VisualFeatureTypes.Tags, 
-            //     VisualFeatureTypes.Description 
-            // };
-            // var analysisResult = await visionClient.AnalyzeImageInStreamAsync(imageStream, features);
+            // using var visionClient = new ImageAnalysisClient(endpoint, credentials);
+            // var features = ImageAnalysisFeature.Objects | ImageAnalysisFeature.Tags | ImageAnalysisFeature.Caption;
+            // var analysisResult = await visionClient.AnalyzeAsync(imageStream, features);
 
             // TODO: Extract and format results
             // var detectedObjects = analysisResult.Objects.Select(obj => new VisionObject
@@ -93,7 +88,7 @@ public class BuiltInVisionService
                 Tags = mockResults.Tags,
                 Description = mockResults.Description,
                 ProcessingTimeMs = stopwatch.ElapsedMilliseconds,
-                Message = "STUB: Mock vision analysis results. TODO: Implement .NET Computer Vision API integration."
+                Message = "STUB: Mock vision analysis results. TODO: Implement Computer Vision API integration (Azure, ML.NET, or ONNX)."
             };
         }
         catch (Exception ex)

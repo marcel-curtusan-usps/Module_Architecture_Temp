@@ -5,8 +5,8 @@ using ContainerDetectionModule.Services;
 namespace ContainerDetectionModule.Controllers;
 
 /// <summary>
-/// Controller for .NET 10 built-in Computer Vision API integration.
-/// Provides image analysis using native .NET capabilities.
+/// Controller for Computer Vision API integration.
+/// Provides image analysis using .NET-compatible Computer Vision libraries.
 /// </summary>
 [ApiController]
 [Route("api")]
@@ -22,7 +22,7 @@ public class BuiltInVisionController : ControllerBase
     }
 
     /// <summary>
-    /// Analyzes an image using .NET 10 built-in Computer Vision APIs.
+    /// Analyzes an image using Computer Vision libraries compatible with .NET.
     /// Returns detected objects, tags, and image description.
     /// </summary>
     /// <param name="request">Image request containing base64-encoded image data</param>
@@ -79,7 +79,7 @@ public class BuiltInVisionController : ControllerBase
             service = "BuiltInVisionService",
             status = "healthy",
             timestamp = DateTime.UtcNow,
-            message = ".NET 10 Computer Vision service is operational (stub implementation)"
+            message = "Computer Vision service is operational (stub implementation)"
         });
     }
 }

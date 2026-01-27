@@ -7,7 +7,7 @@ A microservice for computer vision and object detection, specifically designed f
 ContainerDetectionModule provides three distinct API endpoints for image analysis:
 
 1. **Custom Detection** (`/api/detect`) - USPS-specific object detection
-2. **Built-in Vision** (`/api/builtin-vision`) - .NET 10 Computer Vision API integration
+2. **Built-in Vision** (`/api/builtin-vision`) - Computer Vision API integration using .NET-compatible libraries
 3. **Foundry Vision** (`/api/foundry-vision`) - Microsoft Foundry Computer Vision API proxy
 
 ## Architecture
@@ -61,7 +61,7 @@ Custom object detection for USPS containers, people, and vehicles.
 - [ ] Set up model versioning and updates
 
 ### 2. POST /api/builtin-vision
-Image analysis using .NET 10 built-in Computer Vision APIs.
+Image analysis using Computer Vision libraries compatible with .NET (Azure Computer Vision, ML.NET, ONNX Runtime, etc.).
 
 **Request:**
 ```json
@@ -91,9 +91,9 @@ Image analysis using .NET 10 built-in Computer Vision APIs.
 ```
 
 **TODO Items:**
-- [ ] Install required NuGet packages for .NET Computer Vision
-- [ ] Configure API credentials/endpoints
-- [ ] Implement actual API client integration
+- [ ] Install required NuGet packages (Azure.AI.Vision.ImageAnalysis, Microsoft.ML.OnnxRuntime, or similar)
+- [ ] Configure API credentials/endpoints (for cloud-based services)
+- [ ] Implement actual API client integration or local model inference
 - [ ] Add error handling for API failures
 - [ ] Implement rate limiting and retry logic
 - [ ] Add request caching for performance
@@ -193,9 +193,9 @@ All endpoints currently return mock/stub data. This is intentional to provide:
    - Implement inference pipeline
 
 2. **Built-in Vision Service**
-   - Research available .NET 10 Computer Vision APIs
-   - Install required packages
-   - Implement API integration
+   - Research and select appropriate Computer Vision library (Azure Computer Vision SDK, ML.NET, ONNX Runtime)
+   - Install required NuGet packages
+   - Implement API integration or model inference
 
 3. **Foundry Vision Service**
    - Obtain Microsoft Foundry API credentials
@@ -216,9 +216,11 @@ All endpoints currently return mock/stub data. This is intentional to provide:
 
 ## Dependencies
 
-- .NET 10.0
+- .NET 10.0 (Target Framework)
 - Microsoft.AspNetCore.OpenApi (10.0.2)
 - Scalar.AspNetCore (1.2.64)
+
+Note: Additional NuGet packages will be required for actual Computer Vision implementations (e.g., Azure.AI.Vision.ImageAnalysis, Microsoft.ML.OnnxRuntime, Microsoft.ML.Vision, etc.).
 
 ## Port Configuration
 
