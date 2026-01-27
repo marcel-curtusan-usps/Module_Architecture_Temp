@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="MainApp/MainApp.csproj" />
   <Project Path="DataStore/DataStore.csproj" />
+  <Project Path="ContainerDetectionModule/ContainerDetectionModule.csproj" />
 </Solution>
