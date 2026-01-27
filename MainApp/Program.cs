@@ -45,4 +45,4 @@ lifetime.ApplicationStopping.Register(() =>
     moduleManager.StopAllModulesAsync().GetAwaiter().GetResult();
 });
 
-app.Run();
+await app.RunAsync();
