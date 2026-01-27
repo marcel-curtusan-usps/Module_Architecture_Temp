@@ -21,6 +21,15 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+// Derive a process name from the entry assembly or application name
+var processName = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Name
+    ?? builder.Environment.ApplicationName ?? "MainApp";
+try
+{
+    Console.Title = processName;
+}
+catch { }
+
 // Configure the HTTP request pipeline - Enable OpenAPI and Scalar UI
 app.MapOpenApi();
 app.MapScalarApiReference();
@@ -32,6 +41,7 @@ app.MapControllers();
 // Start modules from configuration at startup
 var moduleManager = app.Services.GetRequiredService<ModuleManagerService>();
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("Process name: {ProcessName}", processName);
 
 await ConfigureServices.StartModulesFromConfiguration(
     moduleManager,

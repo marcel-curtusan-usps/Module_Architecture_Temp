@@ -91,13 +91,42 @@ public class ModuleManagerService
 
         var startInfo = new ProcessStartInfo
         {
-            FileName = "dotnet",
-            Arguments = $"{modulePath} --name {name} --port {port}",
             UseShellExecute = false,
             CreateNoWindow = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
+
+        // If modulePath points to a built DLL, run it with `dotnet <dll>`.
+        // If it points to a project folder or .csproj, use `dotnet run --project`.
+        if (modulePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+        {
+            startInfo.FileName = "dotnet";
+            startInfo.Arguments = $"\"{modulePath}\" --name {name} --port {port}";
+            startInfo.WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory();
+        }
+        else if (Directory.Exists(modulePath) || modulePath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+        {
+            startInfo.FileName = "dotnet";
+            if (modulePath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+            {
+                startInfo.Arguments = $"run --project \"{modulePath}\" --no-build -- --name {name} --port {port}";
+                startInfo.WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory();
+            }
+            else
+            {
+                // modulePath is a directory
+                startInfo.Arguments = $"run --project \"{modulePath}\" -- --name {name} --port {port}";
+                startInfo.WorkingDirectory = modulePath;
+            }
+        }
+        else
+        {
+            // Fallback: treat modulePath as an executable path
+            startInfo.FileName = modulePath;
+            startInfo.Arguments = $"--name {name} --port {port}";
+            startInfo.WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory();
+        }
 
         var process = Process.Start(startInfo);
         if (process == null)
@@ -225,11 +254,12 @@ public class ModuleManagerService
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"{modulePath} --name {name} --port {port}",
+            Arguments = $"\"{modulePath}\" --name {name} --port {port}",
             UseShellExecute = false,
             CreateNoWindow = false,
             RedirectStandardOutput = true,
-            RedirectStandardError = true
+            RedirectStandardError = true,
+            WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory()
         };
 
         var process = Process.Start(startInfo);
