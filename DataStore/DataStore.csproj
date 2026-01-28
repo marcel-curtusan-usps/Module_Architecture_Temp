@@ -11,4 +11,8 @@
     <PackageReference Include="Scalar.AspNetCore" Version="1.2.64" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\MainApp\Services\HeartbeatService.cs" Link="Services\HeartbeatService.cs" />
+  </ItemGroup>
+
 </Project>

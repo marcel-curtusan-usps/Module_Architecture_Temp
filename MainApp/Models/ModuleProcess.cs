@@ -8,6 +8,10 @@ public class ModuleProcess
     public required int Port { get; set; }
     public required Process Process { get; set; }
     public required DateTime StartTime { get; set; }
+    
+    // Heartbeat tracking properties
+    public DateTime? LastHeartbeatTime { get; set; }
+    public bool IsHealthy { get; set; } = true;
 
     public string Status => Process.HasExited ? "Stopped" : "Running";
     

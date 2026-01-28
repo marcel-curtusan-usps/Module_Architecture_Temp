@@ -11,7 +11,12 @@ builder.Services.AddOpenApi();
 // Register the module manager as a singleton
 builder.Services.AddSingleton<ModuleManagerService>();
 
-// Bind ModuleConfiguration from appsettings
+// Register heartbeat monitoring service
+builder.Services.AddHostedService<HeartbeatMonitorService>();
+
+// Bind configurations from appsettings
+builder.Services.Configure<HeartbeatConfiguration>(
+    builder.Configuration.GetSection("HeartbeatConfiguration"));
 builder.Services.Configure<ModuleConfiguration>(
     builder.Configuration.GetSection("ModuleConfiguration"));
 
