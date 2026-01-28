@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using MainApp.Models;
 
@@ -5,7 +6,7 @@ namespace MainApp.Services;
 
 public class ModuleManagerService
 {
-    private readonly List<ModuleProcess> _modules = new();
+    private readonly ConcurrentDictionary<string, ModuleProcess> _modules = new(StringComparer.OrdinalIgnoreCase);
     private readonly HttpClient _httpClient = new();
     private int _nextPort = 5000;
     private readonly ILogger<ModuleManagerService> _logger;
@@ -25,12 +26,13 @@ public class ModuleManagerService
 
     public IReadOnlyList<ModuleProcess> GetAllModules()
     {
-        return _modules.AsReadOnly();
+        return _modules.Values.ToList().AsReadOnly();
     }
 
     public ModuleProcess? GetModuleByName(string name)
     {
-        return _modules.FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        _modules.TryGetValue(name, out var module);
+        return module;
     }
 
     /// <summary>
@@ -53,7 +55,7 @@ public class ModuleManagerService
             }
         }
         
-        _modules.Remove(existingModule);
+        _modules.TryRemove(existingModule.Name, out _);
         _logger.LogInformation("Existing module '{Name}' removed from tracking.", existingModule.Name);
         
         // Small delay to ensure port is released
@@ -149,7 +151,7 @@ public class ModuleManagerService
             StartTime = DateTime.Now
         };
         
-        _modules.Add(module);
+        _modules.TryAdd(name, module);
         
         // Give it time to start
         await Task.Delay(1000);
@@ -190,7 +192,7 @@ public class ModuleManagerService
                     }
                 }
                 
-                _modules.Remove(module);
+                _modules.TryRemove(module.Name, out _);
                 _logger.LogInformation("Module '{Name}' stopped.", name);
                 return true;
             }
@@ -208,7 +210,7 @@ public class ModuleManagerService
                 {
                     _logger.LogError(killEx, "Failed to kill module '{Name}'", name);
                 }
-                _modules.Remove(module);
+                _modules.TryRemove(module.Name, out _);
                 return true;
             }
         }
@@ -247,7 +249,7 @@ public class ModuleManagerService
                 _logger.LogError(ex, "Failed to kill module '{Name}' during restart", name);
             }
         }
-        _modules.Remove(module);
+        _modules.TryRemove(module.Name, out _);
 
         // Start it again
         await Task.Delay(500);
@@ -279,7 +281,7 @@ public class ModuleManagerService
                 Process = process,
                 StartTime = DateTime.Now
             };
-            _modules.Add(newModule);
+            _modules.TryAdd(name, newModule);
             
             await Task.Delay(1000);
             _logger.LogInformation("Module '{Name}' restarted on port {Port}", name, port);
@@ -315,14 +317,14 @@ public class ModuleManagerService
             _logger.LogInformation("Module '{Name}' is already stopped.", name);
         }
         
-        _modules.Remove(module);
+        _modules.TryRemove(module.Name, out _);
         return true;
     }
 
     public async Task StopAllModulesAsync()
     {
         _logger.LogInformation("Stopping all modules...");
-        foreach (var module in _modules.ToList())
+        foreach (var module in _modules.Values.ToList())
         {
             try
             {

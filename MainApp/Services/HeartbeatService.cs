@@ -17,6 +17,7 @@ public class HeartbeatService : IDisposable
     private bool _disposed;
     private int _failedHeartbeatCount;
     private readonly int _maxFailedHeartbeats = 3; // Terminate after 3 failed heartbeats
+    private int _isHeartbeatInProgress; // 0 = not in progress, 1 = in progress
 
     /// <summary>
     /// Initializes a new instance of the HeartbeatService
@@ -42,6 +43,10 @@ public class HeartbeatService : IDisposable
         _mainAppUrl = mainAppUrl;
         _heartbeatIntervalMs = heartbeatIntervalMs;
         _failedHeartbeatCount = 0;
+        _isHeartbeatInProgress = 0;
+        
+        // Configure HttpClient timeout to ensure timely failure detection
+        _httpClient.Timeout = TimeSpan.FromSeconds(3);
     }
 
     /// <summary>
@@ -80,6 +85,14 @@ public class HeartbeatService : IDisposable
 
     private async void SendHeartbeatCallback(object? state)
     {
+        // Prevent overlapping heartbeat attempts using atomic compare-exchange
+        if (Interlocked.CompareExchange(ref _isHeartbeatInProgress, 1, 0) != 0)
+        {
+            // Another heartbeat is already in progress, skip this one
+            _logger.LogDebug("Skipping heartbeat for module '{ModuleName}' - previous heartbeat still in progress", _moduleName);
+            return;
+        }
+
         try
         {
             await SendHeartbeatAsync();
@@ -87,6 +100,11 @@ public class HeartbeatService : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in heartbeat callback for module '{ModuleName}'", _moduleName);
+        }
+        finally
+        {
+            // Release the lock
+            Interlocked.Exchange(ref _isHeartbeatInProgress, 0);
         }
     }
 
@@ -108,44 +126,44 @@ public class HeartbeatService : IDisposable
 
             if (response.IsSuccessStatusCode)
             {
-                // Heartbeat acknowledged successfully
-                _failedHeartbeatCount = 0;
+                // Heartbeat acknowledged successfully - reset counter using thread-safe operation
+                Interlocked.Exchange(ref _failedHeartbeatCount, 0);
                 _logger.LogDebug("Heartbeat sent successfully from module '{ModuleName}'", _moduleName);
             }
             else
             {
-                // Heartbeat failed with non-success status code
-                _failedHeartbeatCount++;
+                // Heartbeat failed with non-success status code - increment counter thread-safely
+                var currentCount = Interlocked.Increment(ref _failedHeartbeatCount);
                 _logger.LogWarning("Heartbeat failed for module '{ModuleName}'. Status: {StatusCode}. Failed count: {FailedCount}",
-                    _moduleName, response.StatusCode, _failedHeartbeatCount);
+                    _moduleName, response.StatusCode, currentCount);
 
                 await HandleFailedHeartbeatAsync();
             }
         }
         catch (HttpRequestException ex)
         {
-            // Network-related error
-            _failedHeartbeatCount++;
+            // Network-related error - increment counter thread-safely
+            var currentCount = Interlocked.Increment(ref _failedHeartbeatCount);
             _logger.LogWarning(ex, "Heartbeat communication error for module '{ModuleName}'. Failed count: {FailedCount}",
-                _moduleName, _failedHeartbeatCount);
+                _moduleName, currentCount);
 
             await HandleFailedHeartbeatAsync();
         }
         catch (TaskCanceledException ex)
         {
-            // Timeout
-            _failedHeartbeatCount++;
+            // Timeout - increment counter thread-safely
+            var currentCount = Interlocked.Increment(ref _failedHeartbeatCount);
             _logger.LogWarning(ex, "Heartbeat timeout for module '{ModuleName}'. Failed count: {FailedCount}",
-                _moduleName, _failedHeartbeatCount);
+                _moduleName, currentCount);
 
             await HandleFailedHeartbeatAsync();
         }
         catch (Exception ex)
         {
-            // Unexpected error
-            _failedHeartbeatCount++;
+            // Unexpected error - increment counter thread-safely
+            var currentCount = Interlocked.Increment(ref _failedHeartbeatCount);
             _logger.LogError(ex, "Unexpected error sending heartbeat from module '{ModuleName}'. Failed count: {FailedCount}",
-                _moduleName, _failedHeartbeatCount);
+                _moduleName, currentCount);
 
             await HandleFailedHeartbeatAsync();
         }
@@ -153,10 +171,11 @@ public class HeartbeatService : IDisposable
 
     private async Task HandleFailedHeartbeatAsync()
     {
-        if (_failedHeartbeatCount >= _maxFailedHeartbeats)
+        var currentCount = Interlocked.CompareExchange(ref _failedHeartbeatCount, 0, 0); // Read the current value
+        if (currentCount >= _maxFailedHeartbeats)
         {
             _logger.LogCritical("Module '{ModuleName}' has failed to send heartbeat {FailedCount} times. Main application may be unreachable. Terminating module...",
-                _moduleName, _failedHeartbeatCount);
+                _moduleName, currentCount);
 
             // Stop the heartbeat timer to prevent further attempts
             StopHeartbeat();

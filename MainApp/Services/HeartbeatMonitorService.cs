@@ -56,9 +56,18 @@ public class HeartbeatMonitorService : BackgroundService
 
         foreach (var module in modules)
         {
-            // Skip modules that have already exited
-            if (module.Process.HasExited)
+            // Skip modules that have already exited (with exception handling)
+            try
             {
+                if (module.Process.HasExited)
+                {
+                    continue;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // Process handle is no longer valid
+                _logger.LogWarning("Module '{ModuleName}' process handle is no longer valid", module.Name);
                 continue;
             }
 
