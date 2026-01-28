@@ -35,7 +35,9 @@ public class ModulesController : ControllerBase
                     m.Process.HasExited ? 0 : m.Process.Id,
                     m.Status,
                     m.StartTime,
-                    m.Uptime
+                    m.Uptime,
+                    m.LastHeartbeatTime,
+                    m.IsHealthy
                 );
             }
             catch (Exception ex)
@@ -47,7 +49,9 @@ public class ModulesController : ControllerBase
                     0,
                     "Error",
                     m.StartTime,
-                    m.Uptime
+                    m.Uptime,
+                    m.LastHeartbeatTime,
+                    m.IsHealthy
                 );
             }
         });
@@ -77,7 +81,9 @@ public class ModulesController : ControllerBase
                 module.Process.HasExited ? 0 : module.Process.Id,
                 module.Status,
                 module.StartTime,
-                module.Uptime
+                module.Uptime,
+                module.LastHeartbeatTime,
+                module.IsHealthy
             );
             
             return Ok(dto);
@@ -115,7 +121,9 @@ public class ModulesController : ControllerBase
                     module.Process.HasExited ? 0 : module.Process.Id,
                     module.Status,
                     module.StartTime,
-                    module.Uptime
+                    module.Uptime,
+                    module.LastHeartbeatTime,
+                    module.IsHealthy
                 );
                 
                 return CreatedAtAction(nameof(GetModule), new { name = module.Name }, dto);

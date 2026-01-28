@@ -10,10 +10,17 @@ public class ModuleManagerService
     private int _nextPort = 5000;
     private readonly ILogger<ModuleManagerService> _logger;
     private const int PortReleaseDelayMs = 500;
+    private readonly string _mainAppUrl;
 
-    public ModuleManagerService(ILogger<ModuleManagerService> logger)
+    public ModuleManagerService(ILogger<ModuleManagerService> logger, IConfiguration configuration)
     {
         _logger = logger;
+        
+        // Get the MainApp URL from configuration or use default
+        var urls = configuration["ASPNETCORE_URLS"] ?? configuration["urls"] ?? "http://localhost:5000";
+        _mainAppUrl = urls.Split(';')[0]; // Use the first URL if multiple are specified
+        
+        _logger.LogInformation("ModuleManagerService initialized. MainApp URL: {MainAppUrl}", _mainAppUrl);
     }
 
     public IReadOnlyList<ModuleProcess> GetAllModules()
@@ -102,7 +109,7 @@ public class ModuleManagerService
         if (modulePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
         {
             startInfo.FileName = "dotnet";
-            startInfo.Arguments = $"\"{modulePath}\" --name {name} --port {port}";
+            startInfo.Arguments = $"\"{modulePath}\" --name {name} --port {port} --mainappurl {_mainAppUrl}";
             startInfo.WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory();
         }
         else if (Directory.Exists(modulePath) || modulePath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
@@ -110,13 +117,13 @@ public class ModuleManagerService
             startInfo.FileName = "dotnet";
             if (modulePath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
             {
-                startInfo.Arguments = $"run --project \"{modulePath}\" --no-build -- --name {name} --port {port}";
+                startInfo.Arguments = $"run --project \"{modulePath}\" --no-build -- --name {name} --port {port} --mainappurl {_mainAppUrl}";
                 startInfo.WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory();
             }
             else
             {
                 // modulePath is a directory
-                startInfo.Arguments = $"run --project \"{modulePath}\" -- --name {name} --port {port}";
+                startInfo.Arguments = $"run --project \"{modulePath}\" -- --name {name} --port {port} --mainappurl {_mainAppUrl}";
                 startInfo.WorkingDirectory = modulePath;
             }
         }
@@ -124,7 +131,7 @@ public class ModuleManagerService
         {
             // Fallback: treat modulePath as an executable path
             startInfo.FileName = modulePath;
-            startInfo.Arguments = $"--name {name} --port {port}";
+            startInfo.Arguments = $"--name {name} --port {port} --mainappurl {_mainAppUrl}";
             startInfo.WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory();
         }
 
@@ -254,7 +261,7 @@ public class ModuleManagerService
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"\"{modulePath}\" --name {name} --port {port}",
+            Arguments = $"\"{modulePath}\" --name {name} --port {port} --mainappurl {_mainAppUrl}",
             UseShellExecute = false,
             CreateNoWindow = false,
             RedirectStandardOutput = true,

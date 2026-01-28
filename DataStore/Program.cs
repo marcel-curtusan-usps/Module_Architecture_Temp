@@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Parse command line arguments to get the port and name
 var port = 5000; // Default port
 var moduleName = "DataStore"; // Default name
+var mainAppUrl = "http://localhost:5000"; // Default MainApp URL
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -20,6 +21,10 @@ for (int i = 0; i < args.Length; i++)
     else if (args[i] == "--name" && i + 1 < args.Length)
     {
         moduleName = args[i + 1];
+    }
+    else if (args[i] == "--mainappurl" && i + 1 < args.Length)
+    {
+        mainAppUrl = args[i + 1];
     }
 }
 
@@ -57,7 +62,8 @@ var heartbeatService = new HeartbeatService(
     httpClientFactory.CreateClient(),
     logger,
     moduleName,
-    port);
+    port,
+    mainAppUrl);
 heartbeatService.StartHeartbeat();
 
 // Ensure heartbeat service is disposed on shutdown
