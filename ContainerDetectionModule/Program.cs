@@ -47,24 +47,27 @@ var app = builder.Build();
 // Initialize parent process monitor if parent PID was provided
 if (parentPid.HasValue)
 {
-    var logger = app.Services.GetRequiredService<ILogger<ParentProcessMonitor>>();
-    var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
     var configuration = app.Services.GetRequiredService<IConfiguration>();
     
     // Read check interval from configuration, default to 5 seconds
     var checkIntervalSeconds = configuration.GetValue<int>("ParentProcessMonitor:CheckIntervalSeconds", 5);
     
-    // Create and start the parent process monitor
-    // Expected parent process name: "MainApp" (for PID reuse detection)
-    var monitor = new ParentProcessMonitor(
+    // Register the monitor as a singleton so it can be properly disposed
+    var monitor = ActivatorUtilities.CreateInstance<ParentProcessMonitor>(
+        app.Services,
         parentPid.Value,
-        logger,
-        lifetime,
-        checkIntervalSeconds: checkIntervalSeconds,
-        expectedParentProcessName: "MainApp");
+        checkIntervalSeconds,
+        "MainApp");
+    
+    // Register it in the service collection for disposal
+    app.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping.Register(() =>
+    {
+        monitor.Dispose();
+    });
     
     monitor.Start();
     
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
     logger.LogInformation(
         "ContainerDetectionModule started with parent process monitoring (Parent PID: {ParentPID}, Check Interval: {Interval}s)",
         parentPid.Value,

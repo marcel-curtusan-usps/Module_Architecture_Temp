@@ -15,6 +15,7 @@ public class ParentProcessMonitor : IDisposable
     private readonly string? _expectedParentProcessName;
     private bool _disposed;
     private readonly IHostApplicationLifetime _lifetime;
+    private int _isChecking; // 0 = not checking, 1 = checking (for thread safety)
 
     /// <summary>
     /// Creates a new parent process monitor.
@@ -31,6 +32,16 @@ public class ParentProcessMonitor : IDisposable
         int checkIntervalSeconds = 5,
         string? expectedParentProcessName = null)
     {
+        if (parentProcessId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(parentProcessId), "Parent process ID must be positive");
+        }
+
+        if (checkIntervalSeconds <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(checkIntervalSeconds), "Check interval must be positive");
+        }
+
         _parentProcessId = parentProcessId;
         _logger = logger;
         _lifetime = lifetime;
@@ -67,7 +78,7 @@ public class ParentProcessMonitor : IDisposable
         try
         {
             // Try to get the process by ID
-            var process = Process.GetProcessById(_parentProcessId);
+            using var process = Process.GetProcessById(_parentProcessId);
             
             // Process exists, but verify it hasn't exited
             if (process.HasExited)
@@ -129,6 +140,7 @@ public class ParentProcessMonitor : IDisposable
 
     /// <summary>
     /// Timer callback that checks parent process status and initiates shutdown if needed.
+    /// Uses atomic operation to prevent concurrent execution.
     /// </summary>
     private void CheckParentProcess(object? state)
     {
@@ -137,17 +149,32 @@ public class ParentProcessMonitor : IDisposable
             return;
         }
 
-        if (!IsParentProcessRunning())
+        // Use Interlocked.CompareExchange to ensure only one check runs at a time
+        if (Interlocked.CompareExchange(ref _isChecking, 1, 0) != 0)
         {
-            _logger.LogWarning(
-                "Parent process (PID: {ParentPID}) is no longer running. Initiating graceful shutdown to prevent orphaned process.",
-                _parentProcessId);
+            // Another check is already in progress, skip this one
+            return;
+        }
 
-            // Stop the timer to prevent additional checks
-            _checkTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+        try
+        {
+            if (!IsParentProcessRunning())
+            {
+                _logger.LogWarning(
+                    "Parent process (PID: {ParentPID}) is no longer running. Initiating graceful shutdown to prevent orphaned process.",
+                    _parentProcessId);
 
-            // Trigger graceful application shutdown
-            _lifetime.StopApplication();
+                // Stop the timer to prevent additional checks
+                _checkTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+
+                // Trigger graceful application shutdown
+                _lifetime.StopApplication();
+            }
+        }
+        finally
+        {
+            // Reset the checking flag
+            Interlocked.Exchange(ref _isChecking, 0);
         }
     }
 
@@ -169,6 +196,8 @@ public class ParentProcessMonitor : IDisposable
 
         _disposed = true;
         _checkTimer?.Dispose();
+        
+        GC.SuppressFinalize(this);
         
         _logger.LogInformation("ParentProcessMonitor disposed.");
     }
