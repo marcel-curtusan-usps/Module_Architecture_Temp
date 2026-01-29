@@ -89,6 +89,9 @@ public class ModuleManagerService
             throw new FileNotFoundException($"Could not find module '{name}'. Please build the solution first.");
         }
 
+        // Get the current process ID to pass to the child module
+        var parentProcessId = Environment.ProcessId;
+
         var startInfo = new ProcessStartInfo
         {
             UseShellExecute = false,
@@ -102,7 +105,7 @@ public class ModuleManagerService
         if (modulePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
         {
             startInfo.FileName = "dotnet";
-            startInfo.Arguments = $"\"{modulePath}\" --name {name} --port {port}";
+            startInfo.Arguments = $"\"{modulePath}\" --name {name} --port {port} --parent-pid {parentProcessId}";
             startInfo.WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory();
         }
         else if (Directory.Exists(modulePath) || modulePath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
@@ -110,13 +113,13 @@ public class ModuleManagerService
             startInfo.FileName = "dotnet";
             if (modulePath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
             {
-                startInfo.Arguments = $"run --project \"{modulePath}\" --no-build -- --name {name} --port {port}";
+                startInfo.Arguments = $"run --project \"{modulePath}\" --no-build -- --name {name} --port {port} --parent-pid {parentProcessId}";
                 startInfo.WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory();
             }
             else
             {
                 // modulePath is a directory
-                startInfo.Arguments = $"run --project \"{modulePath}\" -- --name {name} --port {port}";
+                startInfo.Arguments = $"run --project \"{modulePath}\" -- --name {name} --port {port} --parent-pid {parentProcessId}";
                 startInfo.WorkingDirectory = modulePath;
             }
         }
@@ -124,7 +127,7 @@ public class ModuleManagerService
         {
             // Fallback: treat modulePath as an executable path
             startInfo.FileName = modulePath;
-            startInfo.Arguments = $"--name {name} --port {port}";
+            startInfo.Arguments = $"--name {name} --port {port} --parent-pid {parentProcessId}";
             startInfo.WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory();
         }
 
@@ -147,7 +150,8 @@ public class ModuleManagerService
         // Give it time to start
         await Task.Delay(1000);
         
-        _logger.LogInformation("Module '{Name}' started on port {Port} (PID: {ProcessId})", name, port, process.Id);
+        _logger.LogInformation("Module '{Name}' started on port {Port} (PID: {ProcessId}), Parent PID: {ParentPID}", 
+            name, port, process.Id, parentProcessId);
         
         return module;
     }
@@ -251,10 +255,13 @@ public class ModuleManagerService
             throw new FileNotFoundException($"Could not find module '{name}'.");
         }
 
+        // Get the current process ID to pass to the child module
+        var parentProcessId = Environment.ProcessId;
+
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"\"{modulePath}\" --name {name} --port {port}",
+            Arguments = $"\"{modulePath}\" --name {name} --port {port} --parent-pid {parentProcessId}",
             UseShellExecute = false,
             CreateNoWindow = false,
             RedirectStandardOutput = true,
