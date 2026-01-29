@@ -98,6 +98,9 @@ public class ModuleManagerService
             throw new FileNotFoundException($"Could not find module '{name}'. Please build the solution first.");
         }
 
+        // Get the current process ID to pass to the child module
+        var parentProcessId = Environment.ProcessId;
+
         var startInfo = new ProcessStartInfo
         {
             UseShellExecute = false,
@@ -156,7 +159,8 @@ public class ModuleManagerService
         // Give it time to start
         await Task.Delay(1000);
         
-        _logger.LogInformation("Module '{Name}' started on port {Port} (PID: {ProcessId})", name, port, process.Id);
+        _logger.LogInformation("Module '{Name}' started on port {Port} (PID: {ProcessId}), Parent PID: {ParentPID}", 
+            name, port, process.Id, parentProcessId);
         
         return module;
     }
@@ -259,6 +263,9 @@ public class ModuleManagerService
         {
             throw new FileNotFoundException($"Could not find module '{name}'.");
         }
+
+        // Get the current process ID to pass to the child module
+        var parentProcessId = Environment.ProcessId;
 
         var startInfo = new ProcessStartInfo
         {

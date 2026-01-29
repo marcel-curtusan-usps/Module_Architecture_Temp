@@ -8,6 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 var port = 5000; // Default port
 var moduleName = "DataStore"; // Default name
 var mainAppUrl = "http://localhost:5000"; // Default MainApp URL
+int? parentPid = null;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -42,6 +43,43 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<DataProviderSelector>();
 
 var app = builder.Build();
+
+// Initialize parent process monitor if parent PID was provided
+if (parentPid.HasValue)
+{
+    var configuration = app.Services.GetRequiredService<IConfiguration>();
+    
+    // Read check interval from configuration, default to 5 seconds
+    var checkIntervalSeconds = configuration.GetValue<int>("ParentProcessMonitor:CheckIntervalSeconds", 5);
+    
+    // Register the monitor as a singleton so it can be properly disposed
+    var monitor = ActivatorUtilities.CreateInstance<ParentProcessMonitor>(
+        app.Services,
+        parentPid.Value,
+        checkIntervalSeconds,
+        "MainApp");
+    
+    // Register it in the service collection for disposal
+    app.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping.Register(() =>
+    {
+        monitor.Dispose();
+    });
+    
+    monitor.Start();
+    
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogInformation(
+        "DataStore started with parent process monitoring (Parent PID: {ParentPID}, Check Interval: {Interval}s)",
+        parentPid.Value,
+        checkIntervalSeconds);
+}
+else
+{
+    var logger = app.Services.GetRequiredService<ILogger<Program>>();
+    logger.LogWarning(
+        "DataStore started without parent process monitoring. " +
+        "Module will not auto-terminate if parent process stops.");
+}
 
 // Configure the HTTP request pipeline - Enable OpenAPI and Scalar UI
 app.MapOpenApi();
