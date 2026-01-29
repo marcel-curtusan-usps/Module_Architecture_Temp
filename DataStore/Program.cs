@@ -1,10 +1,13 @@
 using DataStore.Services;
 using Scalar.AspNetCore;
+using SharedServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Parse command line arguments to get the port and parent PID
+// Parse command line arguments to get the port and name
 var port = 5000; // Default port
+var moduleName = "DataStore"; // Default name
+var mainAppUrl = "http://localhost:5000"; // Default MainApp URL
 int? parentPid = null;
 
 for (int i = 0; i < args.Length; i++)
@@ -16,12 +19,13 @@ for (int i = 0; i < args.Length; i++)
             port = parsedPort;
         }
     }
-    else if (args[i] == "--parent-pid" && i + 1 < args.Length)
+    else if (args[i] == "--name" && i + 1 < args.Length)
     {
-        if (int.TryParse(args[i + 1], out var parsedPid))
-        {
-            parentPid = parsedPid;
-        }
+        moduleName = args[i + 1];
+    }
+    else if (args[i] == "--mainappurl" && i + 1 < args.Length)
+    {
+        mainAppUrl = args[i + 1];
     }
 }
 
@@ -31,6 +35,9 @@ builder.WebHost.UseUrls($"http://localhost:{port}");
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+// Register HttpClient for heartbeat service
+builder.Services.AddHttpClient();
 
 // Register the data provider selector as a singleton
 builder.Services.AddSingleton<DataProviderSelector>();
@@ -85,5 +92,24 @@ app.MapControllers();
 // Initialize the data provider on startup
 var providerSelector = app.Services.GetRequiredService<DataProviderSelector>();
 await providerSelector.GetProviderAsync();
+
+// Start heartbeat service
+var httpClientFactory = app.Services.GetRequiredService<IHttpClientFactory>();
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+var heartbeatService = new HeartbeatService(
+    httpClientFactory.CreateClient(),
+    logger,
+    moduleName,
+    port,
+    mainAppUrl);
+heartbeatService.StartHeartbeat();
+
+// Ensure heartbeat service is disposed on shutdown
+var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+lifetime.ApplicationStopping.Register(() =>
+{
+    heartbeatService.StopHeartbeat();
+    heartbeatService.Dispose();
+});
 
 app.Run();

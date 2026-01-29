@@ -1,4 +1,5 @@
 using MainApp.Models;
+using MainApp.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MainApp.Controllers;
@@ -8,10 +9,14 @@ namespace MainApp.Controllers;
 public class ModuleMessagesController : ControllerBase
 {
     private readonly ILogger<ModuleMessagesController> _logger;
+    private readonly ModuleManagerService _moduleManager;
 
-    public ModuleMessagesController(ILogger<ModuleMessagesController> logger)
+    public ModuleMessagesController(
+        ILogger<ModuleMessagesController> logger,
+        ModuleManagerService moduleManager)
     {
         _logger = logger;
+        _moduleManager = moduleManager;
     }
 
     /// <summary>
@@ -36,6 +41,14 @@ public class ModuleMessagesController : ControllerBase
     {
         _logger.LogDebug("Heartbeat received from module '{ModuleName}' on port {Port}", 
             message.ModuleName, message.Port);
+        
+        // Update the last heartbeat time for this module
+        var module = _moduleManager.GetModuleByName(message.ModuleName);
+        if (module != null)
+        {
+            module.LastHeartbeatTime = DateTime.UtcNow;
+            module.IsHealthy = true;
+        }
         
         return Ok(new { message = "Heartbeat acknowledged", timestamp = DateTime.UtcNow });
     }

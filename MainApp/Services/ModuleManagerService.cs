@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using MainApp.Models;
 
@@ -5,25 +6,33 @@ namespace MainApp.Services;
 
 public class ModuleManagerService
 {
-    private readonly List<ModuleProcess> _modules = new();
+    private readonly ConcurrentDictionary<string, ModuleProcess> _modules = new(StringComparer.OrdinalIgnoreCase);
     private readonly HttpClient _httpClient = new();
     private int _nextPort = 5000;
     private readonly ILogger<ModuleManagerService> _logger;
     private const int PortReleaseDelayMs = 500;
+    private readonly string _mainAppUrl;
 
-    public ModuleManagerService(ILogger<ModuleManagerService> logger)
+    public ModuleManagerService(ILogger<ModuleManagerService> logger, IConfiguration configuration)
     {
         _logger = logger;
+        
+        // Get the MainApp URL from configuration or use default
+        var urls = configuration["ASPNETCORE_URLS"] ?? configuration["urls"] ?? "http://localhost:5000";
+        _mainAppUrl = urls.Split(';')[0]; // Use the first URL if multiple are specified
+        
+        _logger.LogInformation("ModuleManagerService initialized. MainApp URL: {MainAppUrl}", _mainAppUrl);
     }
 
     public IReadOnlyList<ModuleProcess> GetAllModules()
     {
-        return _modules.AsReadOnly();
+        return _modules.Values.ToList().AsReadOnly();
     }
 
     public ModuleProcess? GetModuleByName(string name)
     {
-        return _modules.FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        _modules.TryGetValue(name, out var module);
+        return module;
     }
 
     /// <summary>
@@ -46,7 +55,7 @@ public class ModuleManagerService
             }
         }
         
-        _modules.Remove(existingModule);
+        _modules.TryRemove(existingModule.Name, out _);
         _logger.LogInformation("Existing module '{Name}' removed from tracking.", existingModule.Name);
         
         // Small delay to ensure port is released
@@ -105,7 +114,7 @@ public class ModuleManagerService
         if (modulePath.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
         {
             startInfo.FileName = "dotnet";
-            startInfo.Arguments = $"\"{modulePath}\" --name {name} --port {port} --parent-pid {parentProcessId}";
+            startInfo.Arguments = $"\"{modulePath}\" --name {name} --port {port} --mainappurl {_mainAppUrl}";
             startInfo.WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory();
         }
         else if (Directory.Exists(modulePath) || modulePath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
@@ -113,13 +122,13 @@ public class ModuleManagerService
             startInfo.FileName = "dotnet";
             if (modulePath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
             {
-                startInfo.Arguments = $"run --project \"{modulePath}\" --no-build -- --name {name} --port {port} --parent-pid {parentProcessId}";
+                startInfo.Arguments = $"run --project \"{modulePath}\" --no-build -- --name {name} --port {port} --mainappurl {_mainAppUrl}";
                 startInfo.WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory();
             }
             else
             {
                 // modulePath is a directory
-                startInfo.Arguments = $"run --project \"{modulePath}\" -- --name {name} --port {port} --parent-pid {parentProcessId}";
+                startInfo.Arguments = $"run --project \"{modulePath}\" -- --name {name} --port {port} --mainappurl {_mainAppUrl}";
                 startInfo.WorkingDirectory = modulePath;
             }
         }
@@ -127,7 +136,7 @@ public class ModuleManagerService
         {
             // Fallback: treat modulePath as an executable path
             startInfo.FileName = modulePath;
-            startInfo.Arguments = $"--name {name} --port {port} --parent-pid {parentProcessId}";
+            startInfo.Arguments = $"--name {name} --port {port} --mainappurl {_mainAppUrl}";
             startInfo.WorkingDirectory = Path.GetDirectoryName(modulePath) ?? Directory.GetCurrentDirectory();
         }
 
@@ -145,7 +154,7 @@ public class ModuleManagerService
             StartTime = DateTime.Now
         };
         
-        _modules.Add(module);
+        _modules.TryAdd(name, module);
         
         // Give it time to start
         await Task.Delay(1000);
@@ -187,7 +196,7 @@ public class ModuleManagerService
                     }
                 }
                 
-                _modules.Remove(module);
+                _modules.TryRemove(module.Name, out _);
                 _logger.LogInformation("Module '{Name}' stopped.", name);
                 return true;
             }
@@ -205,7 +214,7 @@ public class ModuleManagerService
                 {
                     _logger.LogError(killEx, "Failed to kill module '{Name}'", name);
                 }
-                _modules.Remove(module);
+                _modules.TryRemove(module.Name, out _);
                 return true;
             }
         }
@@ -244,7 +253,7 @@ public class ModuleManagerService
                 _logger.LogError(ex, "Failed to kill module '{Name}' during restart", name);
             }
         }
-        _modules.Remove(module);
+        _modules.TryRemove(module.Name, out _);
 
         // Start it again
         await Task.Delay(500);
@@ -261,7 +270,7 @@ public class ModuleManagerService
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"\"{modulePath}\" --name {name} --port {port} --parent-pid {parentProcessId}",
+            Arguments = $"\"{modulePath}\" --name {name} --port {port} --mainappurl {_mainAppUrl}",
             UseShellExecute = false,
             CreateNoWindow = false,
             RedirectStandardOutput = true,
@@ -279,7 +288,7 @@ public class ModuleManagerService
                 Process = process,
                 StartTime = DateTime.Now
             };
-            _modules.Add(newModule);
+            _modules.TryAdd(name, newModule);
             
             await Task.Delay(1000);
             _logger.LogInformation("Module '{Name}' restarted on port {Port}", name, port);
@@ -315,14 +324,14 @@ public class ModuleManagerService
             _logger.LogInformation("Module '{Name}' is already stopped.", name);
         }
         
-        _modules.Remove(module);
+        _modules.TryRemove(module.Name, out _);
         return true;
     }
 
     public async Task StopAllModulesAsync()
     {
         _logger.LogInformation("Stopping all modules...");
-        foreach (var module in _modules.ToList())
+        foreach (var module in _modules.Values.ToList())
         {
             try
             {

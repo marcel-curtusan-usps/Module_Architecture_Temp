@@ -6,7 +6,9 @@ public record ModuleDto(
     int ProcessId,
     string Status,
     DateTime StartTime,
-    string Uptime
+    string Uptime,
+    DateTime? LastHeartbeatTime,
+    bool IsHealthy
 );
 
 public record ModuleStartRequest(string Name);
